@@ -6,25 +6,25 @@ Witness data is also very standardised.
 */
 
 import (
+	"fmt"
+	"math"
+
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
-	"github.com/setavenger/blindbitd/src"
-	"github.com/setavenger/blindbitd/src/logging"
-	"github.com/setavenger/blindbitd/src/utils"
-	"math"
+	"github.com/setavenger/blindbit-scan/pkg/wallet"
 )
 
 // FeeRateCoinSelector
 // Custom CoinSelector implementation. Selects according to a given fee rate. Focused on taproot-only inputs.
-// Needs the OwnedUTXOs to contain at least the Amount of the src.OwnedUTXO.
+// Needs the OwnedUTXOs to contain at least the Amount of the UTXO.
 // The function will fail if not enough value could be added together.
 // Other data in the OwnedUTXOs is preserved.
 // At the moment it is always assumed that we receive a taproot input.
 type FeeRateCoinSelector struct {
-	OwnedUTXOs      src.UtxoCollection
+	OwnedUTXOs      wallet.UtxoCollection
 	MinChangeAmount uint64
-	Recipients      []*src.Recipient
+	Recipients      []*Recipient
 }
 
 // Length in bytes without witness discount
@@ -53,7 +53,11 @@ const (
 	ScriptPubKeyTaprootLen = 34
 )
 
-func NewFeeRateCoinSelector(utxos src.UtxoCollection, minChangeAmount uint64, recipients []*src.Recipient) *FeeRateCoinSelector {
+func NewFeeRateCoinSelector(
+	utxos wallet.UtxoCollection,
+	minChangeAmount uint64,
+	recipients []*Recipient,
+) *FeeRateCoinSelector {
 	return &FeeRateCoinSelector{
 		OwnedUTXOs:      utxos,
 		MinChangeAmount: minChangeAmount,
@@ -65,11 +69,13 @@ func NewFeeRateCoinSelector(utxos src.UtxoCollection, minChangeAmount uint64, re
 // returns the utxos to select and the change amount in order to achieve the desired fee rate.
 // NOTE: A change amount is always added.
 // todo don't require a change amount and just increase fee if difference is below a certain threshold
-func (s *FeeRateCoinSelector) CoinSelect(feeRate uint32) (src.UtxoCollection, uint64, error) {
+func (s *FeeRateCoinSelector) CoinSelect(feeRate uint32) (
+	wallet.UtxoCollection, uint64, error,
+) {
 	// todo should we somehow expose the resulting vBytes for later analysis?
 	// todo reduce complexity in this function
 	if feeRate < 1 {
-		return nil, 0, src.ErrInvalidFeeRate
+		return nil, 0, ErrInvalidFeeRate
 	}
 	// track vBytes of the transaction
 	var vByte float64 // todo make sure we don't face any decimal imprecision
@@ -81,7 +87,7 @@ func (s *FeeRateCoinSelector) CoinSelect(feeRate uint32) (src.UtxoCollection, ui
 	//
 	outputLens, err := extractPkScriptsFromRecipients(s.Recipients)
 	if err != nil {
-		logging.ErrorLogger.Println(err)
+		fmt.Printf("Error extracting pkScripts: %v\n", err)
 		return nil, 0, err
 	}
 
@@ -99,11 +105,11 @@ func (s *FeeRateCoinSelector) CoinSelect(feeRate uint32) (src.UtxoCollection, ui
 		if recipient.Amount > 0 {
 			sumTargetAmount += uint64(recipient.Amount)
 		} else {
-			return nil, 0, src.ErrRecipientAmountIsZero
+			return nil, 0, ErrRecipientAmountIsZero
 		}
 	}
 
-	var selectedInputs src.UtxoCollection
+	var selectedInputs wallet.UtxoCollection
 	var sumSelectedInputsAmounts uint64
 	//var potentialVBytes = vByte // tracks a potential increase before actually adding to the main vByte tracking
 
@@ -134,12 +140,10 @@ func (s *FeeRateCoinSelector) CoinSelect(feeRate uint32) (src.UtxoCollection, ui
 		}
 	}
 
-	return nil, 0, src.ErrInsufficientFunds
-
+	return nil, 0, ErrInsufficientFunds
 }
 
-func extractPkScriptsFromRecipients(recipients []*src.Recipient) ([]int, error) {
-
+func extractPkScriptsFromRecipients(recipients []*Recipient) ([]int, error) {
 	var pkScriptLens []int
 
 	for _, recipient := range recipients {
@@ -148,21 +152,16 @@ func extractPkScriptsFromRecipients(recipients []*src.Recipient) ([]int, error) 
 			pkScriptLens = append(pkScriptLens, len(recipient.PkScript))
 			continue
 		}
-		isSP := utils.IsSilentPaymentAddress(recipient.Address)
-		if isSP {
-			pkScriptLens = append(pkScriptLens, ScriptPubKeyTaprootLen)
-			continue
-		}
 
 		// do this for all non SP addresses
-		address, err := btcutil.DecodeAddress(recipient.Address, src.ChainParams)
+		address, err := btcutil.DecodeAddress(recipient.Address, ChainParams)
 		if err != nil {
-			logging.ErrorLogger.Printf("Failed to decode address: %v", err)
+			fmt.Printf("Failed to decode address: %v\n", err)
 			return nil, err
 		}
 		scriptPubKey, err := txscript.PayToAddrScript(address)
 		if err != nil {
-			logging.ErrorLogger.Printf("Failed to create scriptPubKey: %v", err)
+			fmt.Printf("Failed to create scriptPubKey: %v\n", err)
 			return nil, err
 		}
 		pkScriptLens = append(pkScriptLens, len(scriptPubKey))

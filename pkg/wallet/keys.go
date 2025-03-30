@@ -64,47 +64,6 @@ func GenerateAddress(scanSecret []byte, network Network) (string, error) {
 	return addr.String(), nil
 }
 
-// GenerateLabel generates a labeled address
-func GenerateLabel(scanSecret, spendSecret []byte, m uint32, network Network) (*bip352.Label, error) {
-	params, ok := networkParams[network]
-	if !ok {
-		return nil, fmt.Errorf("unsupported network: %s", network)
-	}
-
-	// Generate scan and spend public keys
-	scanPrivKey, _ := btcec.PrivKeyFromBytes(scanSecret)
-	spendPrivKey, _ := btcec.PrivKeyFromBytes(spendSecret)
-
-	// Generate tweak
-	tweak := generateTweak(scanPrivKey.PubKey(), spendPrivKey.PubKey(), m)
-
-	// Generate labeled public key
-	labeledPubKey, err := generateLabeledPubKey(spendPrivKey.PubKey(), tweak)
-	if err != nil {
-		return nil, fmt.Errorf("failed to generate labeled public key: %w", err)
-	}
-
-	// Generate silent payment address
-	tapKey := txscript.ComputeTaprootKeyNoScript(labeledPubKey)
-	addr, err := btcutil.NewAddressTaproot(schnorr.SerializePubKey(tapKey), params)
-	if err != nil {
-		return nil, fmt.Errorf("failed to create address: %w", err)
-	}
-
-	// Convert the byte slices to fixed-size arrays
-	var pubKey [33]byte
-	var tweakBytes [32]byte
-	copy(pubKey[:], schnorr.SerializePubKey(labeledPubKey))
-	copy(tweakBytes[:], tweak)
-
-	return &bip352.Label{
-		PubKey:  pubKey,
-		Tweak:   tweakBytes,
-		Address: addr.String(),
-		M:       m,
-	}, nil
-}
-
 // generateTweak generates the tweak for a labeled address
 func generateTweak(scanPubKey, spendPubKey *btcec.PublicKey, m uint32) []byte {
 	// Concatenate public keys and m value

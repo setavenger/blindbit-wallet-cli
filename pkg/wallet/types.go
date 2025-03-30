@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/btcsuite/btcd/btcec/v2"
 	scanwallet "github.com/setavenger/blindbit-scan/pkg/wallet"
 	"github.com/setavenger/go-bip352"
 )
@@ -110,4 +111,22 @@ func (w *Wallet) UnmarshalJSON(data []byte) (err error) {
 	}
 
 	return nil
+}
+
+func (w Wallet) PubKeyScan() [33]byte {
+	_, scanPubKey := btcec.PrivKeyFromBytes(w.ScanSecret)
+	return bip352.ConvertToFixedLength33(scanPubKey.SerializeCompressed())
+}
+
+func (w Wallet) PubKeySpend() [33]byte {
+	_, spendPubKey := btcec.PrivKeyFromBytes(w.SpendSecret)
+	return bip352.ConvertToFixedLength33(spendPubKey.SerializeCompressed())
+}
+
+func (w Wallet) ChangeAddress() string {
+	label, err := GenerateLabel(w, 0)
+	if err != nil {
+		panic(err) // should never happen
+	}
+	return label.Address
 }

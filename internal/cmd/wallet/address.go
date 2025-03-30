@@ -3,7 +3,6 @@ package wallet
 import (
 	"fmt"
 
-	"github.com/btcsuite/btcd/btcec/v2"
 	"github.com/setavenger/blindbit-wallet-cli/pkg/wallet"
 	"github.com/setavenger/go-bip352"
 	"github.com/spf13/cobra"
@@ -25,37 +24,31 @@ Note: Label 0 is reserved for change addresses.`,
 
 		// Get label number from flag
 		labelNum, _ := cmd.Flags().GetUint32("label")
-
-		// Convert scan secret to public key
-		scanPrivKey, _ := btcec.PrivKeyFromBytes(w.ScanSecret)
-		scanPubKey := scanPrivKey.PubKey()
-
-		// Convert spend secret to public key
-		spendPrivKey, _ := btcec.PrivKeyFromBytes(w.SpendSecret)
-		spendPubKey := spendPrivKey.PubKey()
-
-		// Convert public keys to fixed-size arrays
-		var scanPubKeyBytes [33]byte
-		var spendPubKeyBytes [33]byte
-		copy(scanPubKeyBytes[:], scanPubKey.SerializeCompressed())
-		copy(spendPubKeyBytes[:], spendPubKey.SerializeCompressed())
+		showChange, _ := cmd.Flags().GetBool("change")
 
 		var address string
-		if labelNum > 0 {
+		if showChange {
+			var label bip352.Label
 			// Create labeled address (user labels start from 1)
-			address, err = bip352.CreateLabeledAddress(
-				scanPubKeyBytes,
-				spendPubKeyBytes,
-				w.Network == "mainnet",
-				0,          // version 0
-				[32]byte{}, // empty tweak (will be generated internally)
-				labelNum,
-			)
+			label, err = wallet.GenerateLabel(*w, 0)
+			if err != nil {
+				return fmt.Errorf("failed to compute label: %w", err)
+			}
+			address = label.Address
+		} else if labelNum > 0 {
+			var label bip352.Label
+			// Create labeled address (user labels start from 1)
+			label, err = wallet.GenerateLabel(*w, labelNum)
+			if err != nil {
+				return fmt.Errorf("failed to compute label: %w", err)
+			}
+			address = label.Address
 		} else {
+
 			// Create base address (no label)
 			address, err = bip352.CreateAddress(
-				scanPubKeyBytes,
-				spendPubKeyBytes,
+				w.PubKeyScan(),
+				w.PubKeySpend(),
 				w.Network == "mainnet",
 				0, // version 0
 			)
@@ -78,4 +71,5 @@ Note: Label 0 is reserved for change addresses.`,
 func init() {
 	// Add label flag (minimum value 1)
 	addressCmd.Flags().Uint32("label", 0, "Label number (M=1,2,3...) for the address")
+	addressCmd.Flags().Bool("change", false, "show change address, overrides label to 0 internally")
 }

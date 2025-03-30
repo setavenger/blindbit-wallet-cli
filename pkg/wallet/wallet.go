@@ -199,6 +199,34 @@ func Save(datadir string, data *WalletData) error {
 	return nil
 }
 
+func GenerateLabel(
+	w Wallet, m uint32,
+) (
+	l bip352.Label, err error,
+) {
+	l, err = bip352.CreateLabel([32]byte(w.ScanSecret), m)
+	if err != nil {
+		return
+	}
+
+	BmKey, err := bip352.AddPublicKeys(w.PubKeySpend(), l.PubKey)
+	if err != nil {
+		return
+	}
+	address, err := bip352.CreateAddress(
+		w.PubKeyScan(),
+		BmKey,
+		w.Network == "mainnet",
+		0,
+	)
+	if err != nil {
+		return
+	}
+
+	l.Address = address
+	return l, err
+}
+
 // LoadData loads the complete wallet data from the datadir
 func LoadData(datadir string) (*WalletData, error) {
 	expandedDatadir := expandPath(datadir)
