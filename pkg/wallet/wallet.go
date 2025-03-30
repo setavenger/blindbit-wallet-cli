@@ -34,6 +34,8 @@ func expandPath(path string) string {
 
 // New creates a new wallet with a random seed phrase and stores it in the datadir
 func New(datadir string) (*Wallet, error) {
+	expandedDatadir := expandPath(datadir)
+
 	// Generate a random 32-byte seed
 	seed := make([]byte, 32)
 	if _, err := rand.Read(seed); err != nil {
@@ -76,12 +78,12 @@ func New(datadir string) (*Wallet, error) {
 	}
 
 	// Ensure datadir exists
-	if err := os.MkdirAll(datadir, 0700); err != nil {
+	if err := os.MkdirAll(expandedDatadir, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create datadir: %w", err)
 	}
 
 	// Store wallet data
-	walletFile := filepath.Join(datadir, "wallet.json")
+	walletFile := filepath.Join(expandedDatadir, "wallet.json")
 	jsonData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal wallet data: %w", err)
@@ -96,6 +98,8 @@ func New(datadir string) (*Wallet, error) {
 
 // Import creates a wallet from an existing mnemonic and stores it in the datadir
 func Import(datadir string, mnemonic string) (*Wallet, error) {
+	expandedDatadir := expandPath(datadir)
+
 	// Validate mnemonic
 	if !bip39.IsMnemonicValid(mnemonic) {
 		return nil, fmt.Errorf("invalid mnemonic")
@@ -132,12 +136,12 @@ func Import(datadir string, mnemonic string) (*Wallet, error) {
 	}
 
 	// Ensure datadir exists
-	if err := os.MkdirAll(datadir, 0700); err != nil {
+	if err := os.MkdirAll(expandedDatadir, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create datadir: %w", err)
 	}
 
 	// Store wallet data
-	walletFile := filepath.Join(datadir, "wallet.json")
+	walletFile := filepath.Join(expandedDatadir, "wallet.json")
 	jsonData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return nil, fmt.Errorf("failed to marshal wallet data: %w", err)
@@ -152,7 +156,8 @@ func Import(datadir string, mnemonic string) (*Wallet, error) {
 
 // Load loads a wallet from the datadir
 func Load(datadir string) (*Wallet, error) {
-	walletFile := filepath.Join(datadir, "wallet.json")
+	expandedDatadir := expandPath(datadir)
+	walletFile := filepath.Join(expandedDatadir, "wallet.json")
 	data, err := os.ReadFile(walletFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read wallet file: %w", err)
@@ -168,13 +173,15 @@ func Load(datadir string) (*Wallet, error) {
 
 // Save saves wallet data to the datadir
 func Save(datadir string, data *WalletData) error {
+	expandedDatadir := expandPath(datadir)
+
 	// Ensure datadir exists
-	if err := os.MkdirAll(datadir, 0700); err != nil {
+	if err := os.MkdirAll(expandedDatadir, 0700); err != nil {
 		return fmt.Errorf("failed to create datadir: %w", err)
 	}
 
 	// Store wallet data
-	walletFile := filepath.Join(datadir, "wallet.json")
+	walletFile := filepath.Join(expandedDatadir, "wallet.json")
 	jsonData, err := json.MarshalIndent(data, "", "  ")
 	if err != nil {
 		return fmt.Errorf("failed to marshal wallet data: %w", err)

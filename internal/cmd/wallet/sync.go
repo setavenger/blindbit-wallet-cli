@@ -3,7 +3,6 @@ package wallet
 import (
 	"encoding/hex"
 	"fmt"
-	"time"
 
 	client "github.com/setavenger/blindbit-wallet-cli/pkg/clients/blindbitscan"
 	"github.com/setavenger/blindbit-wallet-cli/pkg/wallet"
@@ -43,28 +42,25 @@ var syncCmd = &cobra.Command{
 			return fmt.Errorf("failed to get UTXOs: %w", err)
 		}
 
-		// Convert UTXOs to our format
-		utxos := make([]wallet.UTXO, len(scanUtxos))
-		for i, u := range scanUtxos {
-			utxos[i] = wallet.UTXO{
-				TxID:         hex.EncodeToString(u.Txid[:]),
-				Vout:         u.Vout,
-				Amount:       int64(u.Amount),
-				ScriptPubKey: u.PubKey,
-				Height:       int64(u.Timestamp),
-				Spent:        u.State == wallet.StateSpent || u.State == wallet.StateUnconfirmedSpent,
-				UpdatedAt:    time.Now(),
+		// Convert UTXOs to our format and verify ownership
+		utxos := make([]wallet.UTXO, 0, len(scanUtxos))
+		for _, u := range scanUtxos {
+			// Verify UTXO ownership by checking if we can derive the public key
+			derivedPubKey, err := wallet.DerivePublicKey(w.ScanSecret, u.PrivKeyTweak)
+			if err != nil {
+				fmt.Printf("Warning: Skipping UTXO %s (vout %d) - ownership verification failed: %v\n",
+					hex.EncodeToString(u.Txid[:]), u.Vout, err)
+				continue
 			}
 
-			// Add label if present
-			if u.Label != nil {
-				utxos[i].Label = &wallet.Label{
-					PubKey:  u.Label.PubKey,
-					Tweak:   u.Label.Tweak,
-					Address: u.Label.Address,
-					M:       u.Label.M,
-				}
+			// Compare derived public key with UTXO's public key
+			if !derivedPubKey.IsEqual(u.PubKey) {
+				fmt.Printf("Warning: Skipping UTXO %s (vout %d) - public key mismatch\n",
+					hex.EncodeToString(u.Txid[:]), u.Vout)
+				continue
 			}
+
+			utxos = append(utxos, wallet.UTXO(*u))
 		}
 
 		// Update wallet data
@@ -82,6 +78,10 @@ var syncCmd = &cobra.Command{
 		fmt.Println("Wallet synced successfully!")
 		fmt.Printf("Current height: %d\n", height)
 		fmt.Printf("Found %d UTXOs\n", len(utxos))
+		if len(utxos) != len(scanUtxos) {
+			fmt.Printf("Warning: %d UTXOs were skipped due to ownership verification failures\n",
+				len(scanUtxos)-len(utxos))
+		}
 
 		return nil
 	},

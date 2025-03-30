@@ -2,13 +2,13 @@ package client
 
 import (
 	"context"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
 
-	"encoding/hex"
-
-	"github.com/setavenger/blindbit-wallet-cli/pkg/wallet"
+	"github.com/setavenger/blindbit-scan/pkg/wallet"
+	"github.com/setavenger/go-bip352"
 )
 
 // GetUTXOs calls the GET /utxos endpoint.
@@ -37,39 +37,38 @@ func (c *Client) GetUTXOs(ctx context.Context) ([]*wallet.OwnedUTXO, error) {
 	// Convert utxosResponse to []*wallet.OwnedUTXO
 	result := make([]*wallet.OwnedUTXO, len(utxos))
 	for i, u := range utxos {
-		var label *wallet.Label
+		var label *bip352.Label
 		if u.Label != nil {
-			pubKey, _ := hex.DecodeString(u.Label.PubKey)
-			tweak, _ := hex.DecodeString(u.Label.Tweak)
-			label = &wallet.Label{
-				PubKey:  hex.EncodeToString(pubKey),
-				Tweak:   hex.EncodeToString(tweak),
-				Address: u.Label.Address,
-				M:       u.Label.M,
+			label, err = wallet.ConvertLabelJSONToLabel(*u.Label)
+			if err != nil {
+				return nil, fmt.Errorf("failed to convert label: %w", err)
 			}
 		}
 
-		// Convert state string to UTXOState
-		var state wallet.UTXOState
-		switch u.State {
-		case "spent":
-			state = wallet.StateSpent
-		case "unspent":
-			state = wallet.StateUnspent
-		case "unconfirmed":
-			state = wallet.StateUnconfirmed
-		default:
-			state = wallet.StateUnknown
+		txid, err := hex.DecodeString(u.Txid)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode txid: %w", err)
+		}
+
+		pubKey, err := hex.DecodeString(u.PubKey)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode pubkey: %w", err)
+		}
+
+		privKeyTweak, err := hex.DecodeString(u.PrivKeyTweak)
+		if err != nil {
+			return nil, fmt.Errorf("failed to decode priv_key_tweak: %w", err)
 		}
 
 		result[i] = &wallet.OwnedUTXO{
-			Txid:      u.Txid,
-			Vout:      u.Vout,
-			Amount:    u.Amount,
-			PubKey:    u.PubKey,
-			Timestamp: u.Timestamp,
-			State:     state,
-			Label:     label,
+			Txid:         bip352.ConvertToFixedLength32(txid),
+			Vout:         u.Vout,
+			Amount:       u.Amount,
+			PrivKeyTweak: bip352.ConvertToFixedLength32(privKeyTweak),
+			PubKey:       bip352.ConvertToFixedLength32(pubKey),
+			Timestamp:    u.Timestamp,
+			State:        u.State,
+			Label:        label,
 		}
 	}
 

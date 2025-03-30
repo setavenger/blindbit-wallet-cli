@@ -1,10 +1,13 @@
 package wallet
 
 import (
+	"encoding/hex"
 	"fmt"
 	"os"
 	"text/tabwriter"
+	"time"
 
+	scanwallet "github.com/setavenger/blindbit-scan/pkg/wallet"
 	"github.com/setavenger/blindbit-wallet-cli/pkg/wallet"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -13,12 +16,12 @@ import (
 var utxosCmd = &cobra.Command{
 	Use:   "utxos",
 	Short: "List UTXOs",
-	Long:  `List all UTXOs in the wallet. Use --state to filter by state (unconfirmed, confirmed, spent).`,
+	Long:  `List all UTXOs in the wallet. Use --state to filter by state (unconfirmed, unspent, spent, unconfirmed_spent).`,
 	RunE:  runUtxos,
 }
 
 func init() {
-	utxosCmd.Flags().String("state", "", "Filter by state (unconfirmed, confirmed, spent)")
+	utxosCmd.Flags().String("state", "", "Filter by state (unconfirmed, unspent, spent, unconfirmed_spent)")
 }
 
 func runUtxos(cmd *cobra.Command, args []string) error {
@@ -38,15 +41,19 @@ func runUtxos(cmd *cobra.Command, args []string) error {
 
 		switch state {
 		case "spent":
-			if utxo.Spent {
+			if utxo.State == scanwallet.StateSpent {
 				filteredUtxos = append(filteredUtxos, utxo)
 			}
-		case "confirmed":
-			if !utxo.Spent && utxo.Height > 0 {
+		case "unspent":
+			if utxo.State == scanwallet.StateUnspent {
 				filteredUtxos = append(filteredUtxos, utxo)
 			}
 		case "unconfirmed":
-			if !utxo.Spent && utxo.Height == 0 {
+			if utxo.State == scanwallet.StateUnconfirmed {
+				filteredUtxos = append(filteredUtxos, utxo)
+			}
+		case "unconfirmed_spent":
+			if utxo.State == scanwallet.StateUnconfirmedSpent {
 				filteredUtxos = append(filteredUtxos, utxo)
 			}
 		}
@@ -55,13 +62,16 @@ func runUtxos(cmd *cobra.Command, args []string) error {
 	w := tabwriter.NewWriter(os.Stdout, 0, 0, 2, ' ', 0)
 	defer w.Flush()
 
-	fmt.Fprintln(w, "TXID\tVOUT\tAMOUNT\tHEIGHT\tSTATE\tLABEL")
+	fmt.Fprintln(w, "TXID\tVOUT\tAMOUNT\tTIMESTAMP\tSTATE\tLABEL")
 	for _, utxo := range filteredUtxos {
-		state := "confirmed"
-		if utxo.Spent {
+		state := "unspent"
+		switch utxo.State {
+		case scanwallet.StateSpent:
 			state = "spent"
-		} else if utxo.Height == 0 {
+		case scanwallet.StateUnconfirmed:
 			state = "unconfirmed"
+		case scanwallet.StateUnconfirmedSpent:
+			state = "unconfirmed_spent"
 		}
 
 		label := ""
@@ -69,11 +79,14 @@ func runUtxos(cmd *cobra.Command, args []string) error {
 			label = fmt.Sprintf("M=%d", utxo.Label.M)
 		}
 
-		fmt.Fprintf(w, "%s\t%d\t%d\t%d\t%s\t%s\n",
-			utxo.TxID,
+		// Convert Unix timestamp to human-readable time
+		timestamp := time.Unix(int64(utxo.Timestamp), 0).Format("2006-01-02 15:04:05")
+
+		fmt.Fprintf(w, "%s\t%d\t%d\t%s\t%s\t%s\n",
+			hex.EncodeToString(utxo.Txid[:]),
 			utxo.Vout,
 			utxo.Amount,
-			utxo.Height,
+			timestamp,
 			state,
 			label)
 	}

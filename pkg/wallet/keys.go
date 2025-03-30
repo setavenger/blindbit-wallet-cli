@@ -2,7 +2,6 @@ package wallet
 
 import (
 	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 
 	"github.com/btcsuite/btcd/btcec/v2"
@@ -10,6 +9,7 @@ import (
 	"github.com/btcsuite/btcd/btcutil"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/txscript"
+	"github.com/setavenger/go-bip352"
 	"github.com/tyler-smith/go-bip39"
 )
 
@@ -65,7 +65,7 @@ func GenerateAddress(scanSecret []byte, network Network) (string, error) {
 }
 
 // GenerateLabel generates a labeled address
-func GenerateLabel(scanSecret, spendSecret []byte, m uint32, network Network) (*Label, error) {
+func GenerateLabel(scanSecret, spendSecret []byte, m uint32, network Network) (*bip352.Label, error) {
 	params, ok := networkParams[network]
 	if !ok {
 		return nil, fmt.Errorf("unsupported network: %s", network)
@@ -91,9 +91,15 @@ func GenerateLabel(scanSecret, spendSecret []byte, m uint32, network Network) (*
 		return nil, fmt.Errorf("failed to create address: %w", err)
 	}
 
-	return &Label{
-		PubKey:  hex.EncodeToString(schnorr.SerializePubKey(labeledPubKey)),
-		Tweak:   hex.EncodeToString(tweak),
+	// Convert the byte slices to fixed-size arrays
+	var pubKey [33]byte
+	var tweakBytes [32]byte
+	copy(pubKey[:], schnorr.SerializePubKey(labeledPubKey))
+	copy(tweakBytes[:], tweak)
+
+	return &bip352.Label{
+		PubKey:  pubKey,
+		Tweak:   tweakBytes,
 		Address: addr.String(),
 		M:       m,
 	}, nil
@@ -129,6 +135,37 @@ func generateLabeledPubKey(spendPubKey *btcec.PublicKey, tweak []byte) (*btcec.P
 	// Add the points
 	var resultPoint btcec.JacobianPoint
 	btcec.AddNonConst(&spendPoint, &tweakPoint, &resultPoint)
+
+	// Convert back to affine coordinates
+	resultPoint.ToAffine()
+
+	// Create new public key from the result point
+	return btcec.NewPublicKey(&resultPoint.X, &resultPoint.Y), nil
+}
+
+// DerivePublicKey derives a public key from the scan secret and tweak
+func DerivePublicKey(scanSecret, tweak []byte) (*btcec.PublicKey, error) {
+	// Convert scan secret to private key
+	scanPrivKey, _ := btcec.PrivKeyFromBytes(scanSecret)
+	scanPubKey := scanPrivKey.PubKey()
+
+	// Convert tweak to scalar
+	var tweakScalar btcec.ModNScalar
+	if overflow := tweakScalar.SetByteSlice(tweak); overflow {
+		return nil, fmt.Errorf("tweak value is too large")
+	}
+
+	// Create a point from the tweak scalar by multiplying with generator
+	var tweakPoint btcec.JacobianPoint
+	btcec.ScalarBaseMultNonConst(&tweakScalar, &tweakPoint)
+
+	// Convert scan public key to Jacobian point
+	var scanPoint btcec.JacobianPoint
+	scanPubKey.AsJacobian(&scanPoint)
+
+	// Add the points
+	var resultPoint btcec.JacobianPoint
+	btcec.AddNonConst(&scanPoint, &tweakPoint, &resultPoint)
 
 	// Convert back to affine coordinates
 	resultPoint.ToAffine()

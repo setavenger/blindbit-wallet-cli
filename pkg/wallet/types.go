@@ -3,6 +3,9 @@ package wallet
 import (
 	"encoding/json"
 	"time"
+
+	scanwallet "github.com/setavenger/blindbit-scan/pkg/wallet"
+	"github.com/setavenger/go-bip352"
 )
 
 // Network represents the Bitcoin network type
@@ -35,27 +38,6 @@ type Wallet struct {
 	UpdatedAt   time.Time `json:"updated_at"`
 }
 
-// UTXO represents an unspent transaction output
-type UTXO struct {
-	TxID         string     `json:"txid"`
-	Vout         uint32     `json:"vout"`
-	Amount       int64      `json:"amount"`
-	ScriptPubKey string     `json:"script_pub_key"`
-	Label        *Label     `json:"label,omitempty"`
-	Height       int64      `json:"height"`
-	Spent        bool       `json:"spent"`
-	SpentAt      *time.Time `json:"spent_at,omitempty"`
-	UpdatedAt    time.Time  `json:"updated_at"`
-}
-
-// Label represents a labeled address
-type Label struct {
-	PubKey  string `json:"pub_key"`
-	Tweak   string `json:"tweak"`
-	Address string `json:"address"`
-	M       uint32 `json:"m"`
-}
-
 // WalletData represents the complete wallet data stored on disk
 type WalletData struct {
 	Wallet     Wallet  `json:"wallet"`
@@ -70,16 +52,11 @@ type ScanOnlyParams struct {
 	Network    Network `json:"network"`
 }
 
-// OwnedUTXO represents a UTXO owned by the wallet
-type OwnedUTXO struct {
-	Txid      [32]byte  `json:"txid"`
-	Vout      uint32    `json:"vout"`
-	Amount    uint64    `json:"amount"`
-	PubKey    string    `json:"pub_key"`
-	Timestamp uint64    `json:"timestamp"`
-	State     UTXOState `json:"state"`
-	Label     *Label    `json:"label,omitempty"`
-}
+// UTXO represents a UTXO in the wallet
+type UTXO = scanwallet.OwnedUTXO
+
+// Label represents a labeled address
+type Label = bip352.Label
 
 // NewWallet creates a new wallet with the given mnemonic and network
 func NewWallet(mnemonic string, network Network) (*Wallet, error) {

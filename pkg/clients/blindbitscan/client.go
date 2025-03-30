@@ -3,6 +3,9 @@ package client
 import (
 	"net/http"
 	"time"
+
+	"github.com/setavenger/blindbit-scan/pkg/wallet"
+	"github.com/setavenger/go-bip352"
 )
 
 // basicAuthTransport is a custom RoundTripper that adds a Basic Auth header to every request.
@@ -26,23 +29,18 @@ type Client struct {
 
 // OwnedUTXO represents a UTXO owned by the wallet
 type OwnedUTXO struct {
-	Txid         [32]byte `json:"txid"`
-	Vout         uint32   `json:"vout"`
-	Amount       uint64   `json:"amount"`
-	PrivKeyTweak string   `json:"priv_key_tweak"`
-	PubKey       string   `json:"pub_key"`
-	Timestamp    uint64   `json:"timestamp"`
-	State        string   `json:"utxo_state"`
-	Label        *Label   `json:"label"`
+	Txid         [32]byte      `json:"txid"`
+	Vout         uint32        `json:"vout"`
+	Amount       uint64        `json:"amount"`
+	PrivKeyTweak [32]byte      `json:"priv_key_tweak"`
+	PubKey       [33]byte      `json:"pub_key"`
+	Timestamp    uint64        `json:"timestamp"`
+	State        string        `json:"utxo_state"`
+	Label        *bip352.Label `json:"label"`
 }
 
-// Label represents a labeled address
-type Label struct {
-	PubKey  string `json:"pub_key"`
-	Tweak   string `json:"tweak"`
-	Address string `json:"address"`
-	M       uint32 `json:"m"`
-}
+// utxosResponse represents the response from the /utxos endpoint
+type utxosResponse []wallet.OwnedUtxoJSON
 
 // NewClient returns a new API client. If username and password are non-empty,
 // the client will send a Basic Auth header with every request.
@@ -60,8 +58,8 @@ func NewClient(baseURL, username, password string) *Client {
 	return &Client{
 		baseURL: baseURL,
 		httpClient: &http.Client{
-			Timeout:   10 * time.Second,
 			Transport: transport,
+			Timeout:   30 * time.Second,
 		},
 	}
 }
@@ -72,9 +70,6 @@ func NewClient(baseURL, username, password string) *Client {
 type heightResponse struct {
 	Height uint64 `json:"height"`
 }
-
-// utxosResponse represents a slice of UTXOs returned by GET /utxos.
-type utxosResponse []*OwnedUTXO
 
 // addressResponse mirrors the JSON response from GET /address and PUT /silentpaymentkeys.
 type addressResponse struct {
