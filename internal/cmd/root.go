@@ -59,10 +59,10 @@ func init() {
 
 	// Bind the flags to Viper configuration keys
 	viper.BindPFlag("datadir", RootCmd.PersistentFlags().Lookup("datadir"))
-	viper.BindPFlag("scan_host", RootCmd.PersistentFlags().Lookup("scan_host"))
-	viper.BindPFlag("scan_port", RootCmd.PersistentFlags().Lookup("scan_port"))
-	viper.BindPFlag("scan_user", RootCmd.PersistentFlags().Lookup("scan_user"))
-	viper.BindPFlag("scan_pass", RootCmd.PersistentFlags().Lookup("scan_pass"))
+	viper.BindPFlag("scan_host", RootCmd.PersistentFlags().Lookup("scan-host"))
+	viper.BindPFlag("scan_port", RootCmd.PersistentFlags().Lookup("scan-port"))
+	viper.BindPFlag("scan_user", RootCmd.PersistentFlags().Lookup("scan-user"))
+	viper.BindPFlag("scan_pass", RootCmd.PersistentFlags().Lookup("scan-pass"))
 }
 
 func initConfig() {

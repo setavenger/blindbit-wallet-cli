@@ -2,17 +2,24 @@ package wallet
 
 import "github.com/spf13/cobra"
 
-// NewCommand returns the config command.
+// WalletCmd is the root command for wallet operations
+var WalletCmd = &cobra.Command{
+	Use:   "wallet",
+	Short: "Commands related to wallet operations",
+	Run: func(cmd *cobra.Command, args []string) {
+		// Default action when no subcommand is provided.
+		cmd.Help()
+	},
+}
+
+// NewCommand returns the wallet command.
 func NewCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "wallet",
-		Short: "Commands related to configuration",
-		Run: func(cmd *cobra.Command, args []string) {
-			// Default action when no subcommand is provided.
-			cmd.Help()
-		},
-	}
-	// Add subcommands for config if needed
-	cmd.AddCommand(newUtxosCommand())
-	return cmd
+	// Add subcommands for wallet operations
+	WalletCmd.AddCommand(newCmd)
+	WalletCmd.AddCommand(importCmd)
+	WalletCmd.AddCommand(infoCmd)
+	WalletCmd.AddCommand(syncCmd)
+	WalletCmd.AddCommand(utxosCmd)
+
+	return WalletCmd
 }

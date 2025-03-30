@@ -3,8 +3,6 @@ package client
 import (
 	"net/http"
 	"time"
-
-	"github.com/setavenger/blindbit-scan/pkg/wallet" // for OwnedUTXO
 )
 
 // basicAuthTransport is a custom RoundTripper that adds a Basic Auth header to every request.
@@ -24,6 +22,26 @@ func (bat *basicAuthTransport) RoundTrip(req *http.Request) (*http.Response, err
 type Client struct {
 	baseURL    string
 	httpClient *http.Client
+}
+
+// OwnedUTXO represents a UTXO owned by the wallet
+type OwnedUTXO struct {
+	Txid         [32]byte `json:"txid"`
+	Vout         uint32   `json:"vout"`
+	Amount       uint64   `json:"amount"`
+	PrivKeyTweak string   `json:"priv_key_tweak"`
+	PubKey       string   `json:"pub_key"`
+	Timestamp    uint64   `json:"timestamp"`
+	State        string   `json:"utxo_state"`
+	Label        *Label   `json:"label"`
+}
+
+// Label represents a labeled address
+type Label struct {
+	PubKey  string `json:"pub_key"`
+	Tweak   string `json:"tweak"`
+	Address string `json:"address"`
+	M       uint32 `json:"m"`
 }
 
 // NewClient returns a new API client. If username and password are non-empty,
@@ -56,7 +74,7 @@ type heightResponse struct {
 }
 
 // utxosResponse represents a slice of UTXOs returned by GET /utxos.
-type utxosResponse []*wallet.OwnedUTXO
+type utxosResponse []*OwnedUTXO
 
 // addressResponse mirrors the JSON response from GET /address and PUT /silentpaymentkeys.
 type addressResponse struct {
