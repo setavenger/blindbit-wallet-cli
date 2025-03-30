@@ -1,6 +1,7 @@
 package wallet
 
 import (
+	"bytes"
 	"encoding/hex"
 	"fmt"
 
@@ -46,17 +47,20 @@ var syncCmd = &cobra.Command{
 		utxos := make([]wallet.UTXO, 0, len(scanUtxos))
 		for _, u := range scanUtxos {
 			// Verify UTXO ownership by checking if we can derive the public key
-			derivedPubKey, err := wallet.DerivePublicKey(w.ScanSecret, u.PrivKeyTweak)
+			derivedPubKey, err := wallet.DerivePublicKey(w.SpendSecret, u.PrivKeyTweak)
 			if err != nil {
 				fmt.Printf("Warning: Skipping UTXO %s (vout %d) - ownership verification failed: %v\n",
 					hex.EncodeToString(u.Txid[:]), u.Vout, err)
 				continue
 			}
 
-			// Compare derived public key with UTXO's public key
-			if !derivedPubKey.IsEqual(u.PubKey) {
+			// Compare derived public key with UTXO's public key (X-only comparison)
+			derivedPubKeyBytes := derivedPubKey.SerializeCompressed()
+			if !bytes.Equal(derivedPubKeyBytes[1:], u.PubKey[:]) {
 				fmt.Printf("Warning: Skipping UTXO %s (vout %d) - public key mismatch\n",
 					hex.EncodeToString(u.Txid[:]), u.Vout)
+				fmt.Printf("Derived pubkey: %x\n", derivedPubKeyBytes[1:])
+				fmt.Printf("UTXO pubkey: %x\n", u.PubKey[:])
 				continue
 			}
 

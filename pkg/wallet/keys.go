@@ -143,35 +143,18 @@ func generateLabeledPubKey(spendPubKey *btcec.PublicKey, tweak []byte) (*btcec.P
 	return btcec.NewPublicKey(&resultPoint.X, &resultPoint.Y), nil
 }
 
-// DerivePublicKey derives a public key from the scan secret and tweak
-func DerivePublicKey(scanSecret, tweak []byte) (*btcec.PublicKey, error) {
-	// Convert scan secret to private key
-	scanPrivKey, _ := btcec.PrivKeyFromBytes(scanSecret)
-	scanPubKey := scanPrivKey.PubKey()
+// DerivePublicKey derives a public key from the spend secret and tweak
+func DerivePublicKey(spendSecret []byte, tweak [32]byte) (*btcec.PublicKey, error) {
+	// Convert spend secret to fixed-size array
+	var spendSecretArr [32]byte
+	copy(spendSecretArr[:], spendSecret)
 
-	// Convert tweak to scalar
-	var tweakScalar btcec.ModNScalar
-	if overflow := tweakScalar.SetByteSlice(tweak); overflow {
-		return nil, fmt.Errorf("tweak value is too large")
-	}
+	// Add the private keys (spend secret and tweak)
+	mergedSecret := bip352.AddPrivateKeys(spendSecretArr, tweak)
 
-	// Create a point from the tweak scalar by multiplying with generator
-	var tweakPoint btcec.JacobianPoint
-	btcec.ScalarBaseMultNonConst(&tweakScalar, &tweakPoint)
+	_, mergedPubKey := btcec.PrivKeyFromBytes(mergedSecret[:])
 
-	// Convert scan public key to Jacobian point
-	var scanPoint btcec.JacobianPoint
-	scanPubKey.AsJacobian(&scanPoint)
-
-	// Add the points
-	var resultPoint btcec.JacobianPoint
-	btcec.AddNonConst(&scanPoint, &tweakPoint, &resultPoint)
-
-	// Convert back to affine coordinates
-	resultPoint.ToAffine()
-
-	// Create new public key from the result point
-	return btcec.NewPublicKey(&resultPoint.X, &resultPoint.Y), nil
+	return mergedPubKey, nil
 }
 
 // GetScanOnlyParams returns the scan-only parameters for the wallet

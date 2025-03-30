@@ -1,7 +1,9 @@
 package wallet
 
 import (
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"time"
 
 	scanwallet "github.com/setavenger/blindbit-scan/pkg/wallet"
@@ -79,13 +81,13 @@ func (w *Wallet) MarshalJSON() ([]byte, error) {
 		SpendSecret string `json:"spend_secret"`
 	}{
 		Alias:       (*Alias)(w),
-		ScanSecret:  string(w.ScanSecret),
-		SpendSecret: string(w.SpendSecret),
+		ScanSecret:  hex.EncodeToString(w.ScanSecret),
+		SpendSecret: hex.EncodeToString(w.SpendSecret),
 	})
 }
 
 // UnmarshalJSON implements json.Unmarshaler for Wallet
-func (w *Wallet) UnmarshalJSON(data []byte) error {
+func (w *Wallet) UnmarshalJSON(data []byte) (err error) {
 	type Alias Wallet
 	aux := &struct {
 		*Alias
@@ -97,7 +99,15 @@ func (w *Wallet) UnmarshalJSON(data []byte) error {
 	if err := json.Unmarshal(data, &aux); err != nil {
 		return err
 	}
-	w.ScanSecret = []byte(aux.ScanSecret)
-	w.SpendSecret = []byte(aux.SpendSecret)
+	w.ScanSecret, err = hex.DecodeString(aux.ScanSecret)
+	if err != nil {
+		return fmt.Errorf("failed to decode scan secret: %w", err)
+	}
+
+	w.SpendSecret, err = hex.DecodeString(aux.SpendSecret)
+	if err != nil {
+		return fmt.Errorf("failed to decode spend secret: %w", err)
+	}
+
 	return nil
 }

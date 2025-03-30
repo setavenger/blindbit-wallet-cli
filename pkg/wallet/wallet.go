@@ -1,7 +1,6 @@
 package wallet
 
 import (
-	"crypto/rand"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -10,7 +9,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcutil/hdkeychain"
+	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/setavenger/go-bip352"
 	"github.com/tyler-smith/go-bip39"
 )
 
@@ -33,38 +34,36 @@ func expandPath(path string) string {
 }
 
 // New creates a new wallet with a random seed phrase and stores it in the datadir
-func New(datadir string) (*Wallet, error) {
+func New(datadir string, mainnet bool) (*Wallet, error) {
 	expandedDatadir := expandPath(datadir)
 
-	// Generate a random 32-byte seed
-	seed := make([]byte, 32)
-	if _, err := rand.Read(seed); err != nil {
-		return nil, fmt.Errorf("failed to generate seed: %w", err)
+	entropy, err := bip39.NewEntropy(256)
+	if err != nil {
+		return nil, fmt.Errorf("failed to generate entropy: %w", err)
 	}
 
 	// Generate a new mnemonic
-	mnemonic, err := bip39.NewMnemonic(seed)
+	mnemonic, err := bip39.NewMnemonic(entropy)
 	if err != nil {
 		return nil, fmt.Errorf("failed to generate mnemonic: %w", err)
 	}
 
-	// Generate spend and scan keys
-	spendKey, err := btcec.NewPrivateKey()
+	master, err := hdkeychain.NewMaster(entropy, &chaincfg.MainNetParams)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate spend key: %w", err)
+		return nil, err
 	}
 
-	scanKey, err := btcec.NewPrivateKey()
+	scanSecret, spendSecret, err := bip352.DeriveKeysFromMaster(master, mainnet)
 	if err != nil {
-		return nil, fmt.Errorf("failed to generate scan key: %w", err)
+		return nil, fmt.Errorf("failed to derive keys: %w", err)
 	}
 
 	// Create wallet instance
 	w := &Wallet{
 		Network:     NetworkMainnet,
 		Mnemonic:    mnemonic,
-		ScanSecret:  scanKey.Serialize(),
-		SpendSecret: spendKey.Serialize(),
+		ScanSecret:  scanSecret[:],
+		SpendSecret: spendSecret[:],
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
@@ -113,16 +112,22 @@ func Import(datadir string, mnemonic string) (*Wallet, error) {
 		return nil, fmt.Errorf("seed too short")
 	}
 
-	// Generate spend and scan keys from seed
-	spendKey, _ := btcec.PrivKeyFromBytes(seed[:32])
-	scanKey, _ := btcec.PrivKeyFromBytes(seed[32:64])
+	master, err := hdkeychain.NewMaster(seed, &chaincfg.MainNetParams)
+	if err != nil {
+		return nil, err
+	}
+
+	scanSecret, spendSecret, err := bip352.DeriveKeysFromMaster(master, true)
+	if err != nil {
+		return nil, fmt.Errorf("failed to derive keys: %w", err)
+	}
 
 	// Create wallet instance
 	w := &Wallet{
 		Network:     NetworkMainnet,
 		Mnemonic:    mnemonic,
-		ScanSecret:  scanKey.Serialize(),
-		SpendSecret: spendKey.Serialize(),
+		ScanSecret:  scanSecret[:],
+		SpendSecret: spendSecret[:],
 		CreatedAt:   time.Now(),
 		UpdatedAt:   time.Now(),
 	}
