@@ -3,10 +3,12 @@ package coinselector
 import (
 	"bytes"
 	"errors"
+	"testing"
+
 	"github.com/btcsuite/btcd/chaincfg"
+	"github.com/setavenger/blindbit-wallet-cli/pkg/wallet"
 	"github.com/setavenger/blindbitd/src"
 	"github.com/setavenger/blindbitd/src/logging"
-	"testing"
 )
 
 func init() {
@@ -16,8 +18,8 @@ func init() {
 type TestCase struct {
 	Comment string
 	Given   struct {
-		Utxos           src.UtxoCollection
-		Recipients      []*src.Recipient
+		Utxos           []wallet.UTXO
+		Recipients      []*wallet.Recipient
 		FeeRate         uint32
 		MinChangeAmount uint64
 	}
@@ -34,12 +36,12 @@ var testCases = []TestCase{
 	{
 		Comment: "Simple case",
 		Given: struct {
-			Utxos           src.UtxoCollection
-			Recipients      []*src.Recipient
+			Utxos           []wallet.UTXO
+			Recipients      []*wallet.Recipient
 			FeeRate         uint32
 			MinChangeAmount uint64
 		}{
-			Utxos: src.UtxoCollection{
+			Utxos: []wallet.UTXO{
 				{
 					Amount: 20_000,
 				}, {
@@ -48,7 +50,7 @@ var testCases = []TestCase{
 					Amount: 60_000,
 				},
 			},
-			Recipients: []*src.Recipient{
+			Recipients: []*wallet.Recipient{
 				{
 					Address: "bc1qua7e852suw0p74e2lzxwmk2tw8fd2zuzexc866",
 					Amount:  5_000,

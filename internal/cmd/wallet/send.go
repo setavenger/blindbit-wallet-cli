@@ -3,6 +3,7 @@ package wallet
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/setavenger/blindbit-wallet-cli/pkg/wallet"
 	"github.com/spf13/cobra"
@@ -19,15 +20,10 @@ func NewSendCmd() *cobra.Command {
 		Short: "Send Bitcoin to an address",
 		Long: `Send Bitcoin to an address. The amount should be in satoshis.
 The command supports both regular Bitcoin addresses and silent payment addresses.`,
-		Args: cobra.ExactArgs(2),
+		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if feeRate < 0 {
 				return fmt.Errorf("please set a fee rate")
-			}
-			address := args[0]
-			amount, err := strconv.ParseUint(args[1], 10, 64)
-			if err != nil {
-				return fmt.Errorf("invalid amount: %s", args[1])
 			}
 
 			// Load wallet data
@@ -37,14 +33,21 @@ The command supports both regular Bitcoin addresses and silent payment addresses
 				return fmt.Errorf("failed to load wallet: %w", err)
 			}
 
-			// Create recipient
-			recipient := wallet.Recipient{
-				Address: address,
-				Amount:  amount,
+			var recipients []wallet.Recipient
+			for _, arg := range args {
+				rec, err := extractRecipientFromPositionalArg(arg)
+				if err != nil {
+					return fmt.Errorf("failed to extract recipient: %w", err)
+				}
+				recipients = append(recipients, rec)
 			}
 
 			// Send to recipient
-			txBytes, err := wallet.SendToRecipients(walletData, []wallet.Recipient{recipient}, uint32(feeRate))
+			txBytes, err := wallet.SendToRecipients(
+				walletData,
+				recipients,
+				uint32(feeRate),
+			)
 			if err != nil {
 				return fmt.Errorf("failed to send: %w", err)
 			}
@@ -58,4 +61,19 @@ The command supports both regular Bitcoin addresses and silent payment addresses
 	cmd.Flags().Int32Var(&feeRate, "fee-rate", -1, "Fee rate in sat/vB")
 
 	return cmd
+}
+
+func extractRecipientFromPositionalArg(s string) (r wallet.Recipient, err error) {
+	components := strings.Split(s, ":")
+	if len(components) != 2 {
+		return r, fmt.Errorf("bad recipient arg %s", s)
+	}
+	addr, amt := components[0], components[1]
+
+	r.Address = addr
+	r.Amount, err = strconv.ParseUint(amt, 10, 64)
+	if err != nil {
+		return r, err
+	}
+	return
 }

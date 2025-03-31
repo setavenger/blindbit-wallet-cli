@@ -111,8 +111,6 @@ func (w Wallet) SendToRecipients(
 		sumAllInputs += vin.Amount
 	}
 
-	fmt.Println(w.ChangeAddress())
-
 	if changeAmount > 0 {
 		// change exists, and it should be greater than the MinChangeAmount
 		recipients = append(recipients, &coinselector.Recipient{

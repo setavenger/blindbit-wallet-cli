@@ -13,6 +13,7 @@ import (
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	"github.com/setavenger/blindbit-scan/pkg/wallet"
+	"github.com/setavenger/go-bip352"
 )
 
 // FeeRateCoinSelector
@@ -88,6 +89,7 @@ func (s *FeeRateCoinSelector) CoinSelect(feeRate uint32) (
 	outputLens, err := extractPkScriptsFromRecipients(s.Recipients)
 	if err != nil {
 		fmt.Printf("Error extracting pkScripts: %v\n", err)
+		fmt.Printf("Recipients: %v\n", s.Recipients)
 		return nil, 0, err
 	}
 
@@ -147,6 +149,11 @@ func extractPkScriptsFromRecipients(recipients []*Recipient) ([]int, error) {
 	var pkScriptLens []int
 
 	for _, recipient := range recipients {
+		if bip352.IsSilentPaymentAddress(recipient.Address) {
+			// just take length for a taproot output as it always will be
+			pkScriptLens = append(pkScriptLens, wire.VarIntSerializeSize(uint64(ScriptPubKeyTaprootLen))+ScriptPubKeyTaprootLen)
+			continue
+		}
 		if recipient.PkScript != nil {
 			// skip if a pkScript is already present (for what ever reason)
 			pkScriptLens = append(pkScriptLens, len(recipient.PkScript))
@@ -156,6 +163,7 @@ func extractPkScriptsFromRecipients(recipients []*Recipient) ([]int, error) {
 		// do this for all non SP addresses
 		address, err := btcutil.DecodeAddress(recipient.Address, ChainParams)
 		if err != nil {
+			fmt.Printf("recipientAddress: %v\n", recipient.Address)
 			fmt.Printf("Failed to decode address: %v\n", err)
 			return nil, err
 		}
