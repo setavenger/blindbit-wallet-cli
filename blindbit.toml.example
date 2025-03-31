@@ -1,0 +1,16 @@
+# BlindBit Wallet CLI Configuration
+
+# Data directory for wallet files
+datadir = "~/.blindbit-wallet"
+
+# BlindBit Scan daemon settings
+scan_host = "localhost"  # or your scan daemon host
+scan_port = 8080        # scan daemon port
+scan_user = ""          # optional: username for scan daemon
+scan_pass = ""          # optional: password for scan daemon
+
+# Tor settings for connecting to .onion addresses
+use_tor = false         # set to true to enable Tor
+tor_host = "localhost"  # Tor SOCKS proxy host
+tor_port = 9050        # Tor SOCKS proxy port (default Tor port)
+tor_control = ""       # optional: Tor control port for additional features 

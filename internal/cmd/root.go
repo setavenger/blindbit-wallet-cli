@@ -82,6 +82,12 @@ func initConfig() {
 	viper.SetDefault("scan_port", 8080)
 	viper.SetDefault("scan_user", "")
 	viper.SetDefault("scan_pass", "")
+
+	// Tor configuration defaults
+	viper.SetDefault("use_tor", false)
+	viper.SetDefault("tor_host", "localhost")
+	viper.SetDefault("tor_port", 9050)
+	viper.SetDefault("tor_control", "")
 }
 
 func loadConfig() error {

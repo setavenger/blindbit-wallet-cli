@@ -5,6 +5,7 @@ import (
 	"time"
 
 	"github.com/setavenger/blindbit-scan/pkg/wallet"
+	"github.com/setavenger/blindbit-wallet-cli/internal/client"
 	"github.com/setavenger/go-bip352"
 )
 
@@ -44,14 +45,17 @@ type utxosResponse []wallet.OwnedUtxoJSON
 
 // NewClient returns a new API client. If username and password are non-empty,
 // the client will send a Basic Auth header with every request.
-func NewClient(baseURL, username, password string) *Client {
+func NewClient(baseURL, username, password string, torClient *client.TorClient) *Client {
 	// Use the default transport, or wrap it with basicAuthTransport if auth is provided.
 	var transport http.RoundTripper = http.DefaultTransport
+	if torClient != nil {
+		transport = torClient.CreateHTTPClient().Transport
+	}
 	if username != "" && password != "" {
 		transport = &basicAuthTransport{
 			username: username,
 			password: password,
-			rt:       http.DefaultTransport,
+			rt:       transport,
 		}
 	}
 

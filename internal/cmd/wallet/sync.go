@@ -4,8 +4,11 @@ import (
 	"bytes"
 	"encoding/hex"
 	"fmt"
+	"strings"
 
-	client "github.com/setavenger/blindbit-wallet-cli/pkg/clients/blindbitscan"
+	client "github.com/setavenger/blindbit-wallet-cli/internal/client"
+	"github.com/setavenger/blindbit-wallet-cli/internal/config"
+	scanclient "github.com/setavenger/blindbit-wallet-cli/pkg/clients/blindbitscan"
 	"github.com/setavenger/blindbit-wallet-cli/pkg/wallet"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
@@ -22,14 +25,33 @@ var syncCmd = &cobra.Command{
 			return fmt.Errorf("failed to load wallet: %w", err)
 		}
 
+		// Create Tor client if enabled
+		var torClient *client.TorClient
+		if viper.GetBool("use_tor") {
+			torClient, err = client.NewTorClient(&config.Config{
+				UseTor:     viper.GetBool("use_tor"),
+				TorHost:    viper.GetString("tor_host"),
+				TorPort:    viper.GetInt("tor_port"),
+				TorControl: viper.GetString("tor_control"),
+			})
+			if err != nil {
+				return fmt.Errorf("failed to create Tor client: %w", err)
+			}
+			defer torClient.Close()
+		}
+
 		// Create blindbit-scan client
 		host := viper.GetString("scan_host")
 		port := viper.GetInt("scan_port")
 		username := viper.GetString("scan_user")
 		password := viper.GetString("scan_pass")
 
-		baseURL := fmt.Sprintf("http://%s:%d", host, port)
-		client := client.NewClient(baseURL, username, password)
+		// Use the host directly if it already includes a protocol
+		baseURL := host
+		if !strings.HasPrefix(host, "http://") && !strings.HasPrefix(host, "https://") {
+			baseURL = fmt.Sprintf("http://%s:%d", host, port)
+		}
+		client := scanclient.NewClient(baseURL, username, password, torClient)
 
 		// Get current height
 		height, err := client.GetCurrentHeight()
