@@ -99,7 +99,8 @@ func loadConfig() error {
 
 	// Read config file if it exists
 	if err := viper.ReadInConfig(); err == nil {
-		fmt.Println("Using config file:", viper.ConfigFileUsed())
+		// todo: leave this for verbose logging
+		// fmt.Println("Using config file:", viper.ConfigFileUsed())
 	}
 
 	// Unmarshal config into struct

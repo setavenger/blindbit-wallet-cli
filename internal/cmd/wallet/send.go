@@ -63,17 +63,20 @@ The command supports both regular Bitcoin addresses and silent payment addresses
 	return cmd
 }
 
-func extractRecipientFromPositionalArg(s string) (r wallet.Recipient, err error) {
+func extractRecipientFromPositionalArg(s string) (*wallet.RecipientImpl, error) {
 	components := strings.Split(s, ":")
 	if len(components) != 2 {
-		return r, fmt.Errorf("bad recipient arg %s", s)
+		return nil, fmt.Errorf("bad recipient arg %s", s)
 	}
 	addr, amt := components[0], components[1]
 
-	r.Address = addr
-	r.Amount, err = strconv.ParseUint(amt, 10, 64)
+	amount, err := strconv.ParseUint(amt, 10, 64)
 	if err != nil {
-		return r, err
+		return nil, err
 	}
-	return
+
+	return &wallet.RecipientImpl{
+		Address: addr,
+		Amount:  amount,
+	}, nil
 }

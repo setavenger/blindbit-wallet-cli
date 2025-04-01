@@ -18,6 +18,7 @@ const (
 	NetworkMainnet Network = "mainnet"
 	NetworkTestnet Network = "testnet"
 	NetworkSignet  Network = "signet"
+	NetworkRegtest Network = "regtest"
 )
 
 // UTXOState represents the state of a UTXO

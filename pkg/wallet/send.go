@@ -12,19 +12,11 @@ import (
 	"github.com/btcsuite/btcd/btcutil/txsort"
 	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/btcsuite/btcd/chaincfg/chainhash"
-	"github.com/btcsuite/btcd/mempool"
 	"github.com/btcsuite/btcd/txscript"
 	"github.com/btcsuite/btcd/wire"
 	scanwallet "github.com/setavenger/blindbit-scan/pkg/wallet"
-	"github.com/setavenger/blindbit-wallet-cli/pkg/coinselector"
 	"github.com/setavenger/go-bip352"
 )
-
-// Recipient represents a transaction recipient
-type Recipient struct {
-	Address string
-	Amount  uint64
-}
 
 // SendToRecipients sends Bitcoin to the given recipients
 func SendToRecipients(
@@ -36,12 +28,9 @@ func SendToRecipients(
 	error,
 ) {
 	// Convert recipients to coin selector format
-	var selectorRecipients []*coinselector.Recipient
+	var selectorRecipients []Recipient
 	for _, r := range recipients {
-		selectorRecipients = append(selectorRecipients, &coinselector.Recipient{
-			Address: r.Address,
-			Amount:  r.Amount,
-		})
+		selectorRecipients = append(selectorRecipients, r)
 	}
 
 	// Convert UTXOs to coin selector format
@@ -79,7 +68,7 @@ func SendToRecipients(
 }
 
 func (w Wallet) SendToRecipients(
-	recipients []*coinselector.Recipient,
+	recipients []Recipient,
 	utxos scanwallet.UtxoCollection,
 	feeRate int64,
 	chainParams *chaincfg.Params,
@@ -89,12 +78,28 @@ func (w Wallet) SendToRecipients(
 	txBytes []byte,
 	err error,
 ) {
-	selector := coinselector.NewFeeRateCoinSelector(utxos, minChangeAmount, recipients)
+	// var chainParams *chaincfg.Params
+	// switch w.Network {
+	// case NetworkMainnet:
+	// 	chainParams = &chaincfg.MainNetParams
+	// case NetworkTestnet:
+	// 	chainParams = &chaincfg.TestNet3Params
+	// case NetworkSignet:
+	// 	chainParams = &chaincfg.SigNetParams
+	// case NetworkRegtest:
+	// 	chainParams = &chaincfg.RegressionNetParams
+	// default:
+	// 	return nil, fmt.Errorf("network not covered: %s", w.Network)
+	// }
+	//
+	selector := NewFeeRateCoinSelector(utxos, minChangeAmount, recipients, chainParams)
 
 	selectedUTXOs, changeAmount, err := selector.CoinSelect(uint32(feeRate))
 	if err != nil {
 		return nil, err
 	}
+
+	fmt.Println("change:", changeAmount)
 
 	// vins is the final selection of coins, which can then be used to derive silentPayment Outputs
 	var vins = make([]*bip352.Vin, len(selectedUTXOs))
@@ -113,7 +118,7 @@ func (w Wallet) SendToRecipients(
 
 	if changeAmount > 0 {
 		// change exists, and it should be greater than the MinChangeAmount
-		recipients = append(recipients, &coinselector.Recipient{
+		recipients = append(recipients, &RecipientImpl{
 			Address: w.ChangeAddress(),
 			Amount:  changeAmount,
 		})
@@ -152,22 +157,22 @@ func (w Wallet) SendToRecipients(
 
 	var sumAllOutputs uint64
 	for _, recipient := range recipients {
-		sumAllOutputs += recipient.Amount
+		sumAllOutputs += recipient.GetAmount()
 	}
-	vSize := mempool.GetTxVirtualSize(btcutil.NewTx(finalTx))
-	actualFee := sumAllInputs - sumAllOutputs
-	actualFeeRate := float64(actualFee) / float64(vSize)
+	// vSize := mempool.GetTxVirtualSize(btcutil.NewTx(finalTx))
+	// actualFee := sumAllInputs - sumAllOutputs
+	// actualFeeRate := float64(actualFee) / float64(vSize)
 
-	errorTerm := 0.25 // todo make variable
-	if actualFeeRate > float64(feeRate)+errorTerm {
-		err = fmt.Errorf("actual fee rate deviates to strong from desired fee rate: %f > %d", actualFeeRate, feeRate)
-		return nil, err
-	}
-
-	if actualFeeRate < float64(feeRate)-errorTerm {
-		err = fmt.Errorf("actual fee rate deviates to strong from desired fee rate: %f < %d", actualFeeRate, feeRate)
-		return nil, err
-	}
+	// errorTerm := 0.25 // todo make variable
+	// if actualFeeRate > float64(feeRate)+errorTerm {
+	// 	err = fmt.Errorf("actual fee rate deviates to strong from desired fee rate: %f > %d", actualFeeRate, feeRate)
+	// 	return nil, err
+	// }
+	//
+	// if actualFeeRate < float64(feeRate)-errorTerm {
+	// 	err = fmt.Errorf("actual fee rate deviates to strong from desired fee rate: %f < %d", actualFeeRate, feeRate)
+	// 	return nil, err
+	// }
 
 	var buf bytes.Buffer
 	err = finalTx.Serialize(&buf)
@@ -219,26 +224,27 @@ func (w Wallet) SendToRecipients(
 // NOTE: Existing PkScripts will NOT be overridden, those recipients will be skipped and returned as given
 // todo keep original order in case that is relevant for any use case?
 func ParseRecipients(
-	recipients []*coinselector.Recipient,
+	recipients []Recipient,
 	vins []*bip352.Vin,
 	chainParams *chaincfg.Params,
 ) (
-	[]*coinselector.Recipient,
+	[]Recipient,
 	error,
 ) {
 	var spRecipients []*bip352.Recipient
 
 	// newRecipients tracks the modified group of recipients in order to avoid clashes
-	var newRecipients []*coinselector.Recipient
+	var newRecipients []Recipient
 	for _, recipient := range recipients {
-		if recipient.PkScript != nil {
-			// skip if a pkScript is already present (for what ever reason)
+		if recipient.GetPkScript() != nil && len(recipient.GetPkScript()) > 0 {
+			// If the recipient already has a PkScript, it's already been processed
 			newRecipients = append(newRecipients, recipient)
 			continue
 		}
-		isSP := bip352.IsSilentPaymentAddress(recipient.Address)
+
+		isSP := bip352.IsSilentPaymentAddress(recipient.GetAddress())
 		if !isSP {
-			address, err := btcutil.DecodeAddress(recipient.Address, chainParams)
+			address, err := btcutil.DecodeAddress(recipient.GetAddress(), chainParams)
 			if err != nil {
 				log.Printf("Failed to decode address: %v", err)
 				return nil, err
@@ -248,15 +254,18 @@ func ParseRecipients(
 				log.Printf("Failed to create scriptPubKey: %v", err)
 				return nil, err
 			}
-			recipient.PkScript = scriptPubKey
-
-			newRecipients = append(newRecipients, recipient)
+			newRecipient := &RecipientImpl{
+				Address:  recipient.GetAddress(),
+				Amount:   recipient.GetAmount(),
+				PkScript: scriptPubKey,
+			}
+			newRecipients = append(newRecipients, newRecipient)
 			continue
 		}
 
 		spRecipients = append(spRecipients, &bip352.Recipient{
-			SilentPaymentAddress: recipient.Address,
-			Amount:               uint64(recipient.Amount),
+			SilentPaymentAddress: recipient.GetAddress(),
+			Amount:               recipient.GetAmount(),
 		})
 	}
 
@@ -288,20 +297,20 @@ func ParseRecipients(
 // sanityCheckRecipientsForSending
 // checks whether any of the Recipients lacks the necessary information to construct the transaction.
 // required for every recipient: Recipient.PkScript and Recipient.Amount
-func sanityCheckRecipientsForSending(recipients []*coinselector.Recipient) error {
+func sanityCheckRecipientsForSending(recipients []Recipient) error {
 	for _, recipient := range recipients {
-		if recipient.PkScript == nil || recipient.Amount == 0 {
+		if (recipient.GetPkScript() == nil || len(recipient.GetPkScript()) == 0) || recipient.GetAmount() == 0 {
 			// if we choose a lot of logging in this module/program we could log the incomplete recipient here
-			return fmt.Errorf("incomplete recipient %s", recipient.Address)
+			return fmt.Errorf("incomplete recipient %s", recipient.GetAddress())
 		}
 	}
 	return nil
 }
 
-func CreateUnsignedPsbt(recipients []*coinselector.Recipient, vins []*bip352.Vin) (*psbt.Packet, error) {
+func CreateUnsignedPsbt(recipients []Recipient, vins []*bip352.Vin) (*psbt.Packet, error) {
 	var txOutputs []*wire.TxOut
 	for _, recipient := range recipients {
-		txOutputs = append(txOutputs, wire.NewTxOut(int64(recipient.Amount), recipient.PkScript))
+		txOutputs = append(txOutputs, wire.NewTxOut(int64(recipient.GetAmount()), recipient.GetPkScript()))
 	}
 
 	var txInputs []*wire.TxIn
@@ -420,8 +429,8 @@ func matchAndSign(
 	return psbtInput, fmt.Errorf("no matching vin found for txInput")
 
 }
-func ConvertSPRecipient(recipient *bip352.Recipient) *coinselector.Recipient {
-	return &coinselector.Recipient{
+func ConvertSPRecipient(recipient *bip352.Recipient) *RecipientImpl {
+	return &RecipientImpl{
 		Address:  recipient.SilentPaymentAddress,
 		PkScript: append([]byte{0x51, 0x20}, recipient.Output[:]...),
 		Amount:   recipient.Amount,
