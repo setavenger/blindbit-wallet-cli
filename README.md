@@ -70,7 +70,7 @@ blindbit-wallet-cli wallet address
 ### Send Bitcoin
 
 ```bash
-blindbit-wallet-cli wallet send <address> <amount> [--fee-rate <rate>] [--label <label>]
+blindbit-wallet-cli wallet send <address1>:<amount1> <address2>:<amount2> [--fee-rate <rate>]
 ```
 
 ### View UTXOs
