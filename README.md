@@ -1,6 +1,8 @@
 # BlindBit Wallet CLI
 
-A command-line interface for managing Bitcoin Silent Payment (BIP 352) wallets.
+A command-line interface for managing Bitcoin Silent Payments (BIP 352) wallets.
+
+WARNING: This is program is currently in reckless testing, use at own risk!
 
 ## Features
 
