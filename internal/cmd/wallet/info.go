@@ -20,12 +20,14 @@ var infoCmd = &cobra.Command{
 			return fmt.Errorf("failed to load wallet: %w", err)
 		}
 
+		pubKey := w.PubKeySpend()
+
 		fmt.Println("Wallet Information:")
 		fmt.Println("-------------------")
 		fmt.Println("Network:", w.Network)
 		fmt.Println("Created at:", w.CreatedAt)
 		fmt.Println("Scan Secret:", hex.EncodeToString(w.ScanSecret))
-		fmt.Println("Spend Secret:", hex.EncodeToString(w.SpendSecret))
+		fmt.Println("Spend Public:", hex.EncodeToString(pubKey[:]))
 
 		return nil
 	},
