@@ -16,7 +16,7 @@ WARNING: This is program is currently in reckless testing, use at own risk!
 ## Installation
 
 ```bash
-go install github.com/setavenger/blindbit-wallet-cli@latest
+go install github.com/setavenger/blindbit-wallet-cli/cmd@latest
 ```
 
 ## Configuration
