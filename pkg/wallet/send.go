@@ -233,6 +233,17 @@ func ParseRecipients(
 ) {
 	var spRecipients []*bip352.Recipient
 
+	// Determine if we're on mainnet
+	var mainnet bool
+	switch chainParams.Name {
+	case chaincfg.MainNetParams.Name:
+		mainnet = true
+	case chaincfg.TestNet3Params.Name, chaincfg.SigNetParams.Name, chaincfg.RegressionNetParams.Name:
+		mainnet = false
+	default:
+		return nil, fmt.Errorf("unsupported network: %s", chainParams.Name)
+	}
+
 	// newRecipients tracks the modified group of recipients in order to avoid clashes
 	var newRecipients []Recipient
 	for _, recipient := range recipients {
@@ -267,11 +278,6 @@ func ParseRecipients(
 			SilentPaymentAddress: recipient.GetAddress(),
 			Amount:               recipient.GetAmount(),
 		})
-	}
-
-	var mainnet bool
-	if chainParams.Name == chaincfg.MainNetParams.Name {
-		mainnet = true
 	}
 
 	if len(spRecipients) > 0 {

@@ -10,7 +10,6 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/btcutil/hdkeychain"
-	"github.com/btcsuite/btcd/chaincfg"
 	"github.com/setavenger/go-bip352"
 	"github.com/tyler-smith/go-bip39"
 )
@@ -34,7 +33,12 @@ func expandPath(path string) string {
 }
 
 // New creates a new wallet with a random seed phrase and stores it in the datadir
-func New(datadir string, mainnet bool) (*Wallet, error) {
+func New(
+	datadir string,
+	network Network,
+) (
+	*Wallet, error,
+) {
 	expandedDatadir := expandPath(datadir)
 
 	entropy, err := bip39.NewEntropy(256)
@@ -48,19 +52,24 @@ func New(datadir string, mainnet bool) (*Wallet, error) {
 		return nil, fmt.Errorf("failed to generate mnemonic: %w", err)
 	}
 
-	master, err := hdkeychain.NewMaster(entropy, &chaincfg.MainNetParams)
+	params, ok := networkParams[network]
+	if !ok {
+		return nil, fmt.Errorf("unsupported network: %s", network)
+	}
+
+	master, err := hdkeychain.NewMaster(entropy, params)
 	if err != nil {
 		return nil, err
 	}
 
-	scanSecret, spendSecret, err := bip352.DeriveKeysFromMaster(master, mainnet)
+	scanSecret, spendSecret, err := bip352.DeriveKeysFromMaster(master, network == NetworkMainnet)
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive keys: %w", err)
 	}
 
 	// Create wallet instance
 	w := &Wallet{
-		Network:     NetworkMainnet,
+		Network:     network,
 		Mnemonic:    mnemonic,
 		ScanSecret:  scanSecret[:],
 		SpendSecret: spendSecret[:],
@@ -96,7 +105,13 @@ func New(datadir string, mainnet bool) (*Wallet, error) {
 }
 
 // Import creates a wallet from an existing mnemonic and stores it in the datadir
-func Import(datadir string, mnemonic string) (*Wallet, error) {
+func Import(
+	datadir string,
+	mnemonic string,
+	network Network,
+) (
+	*Wallet, error,
+) {
 	expandedDatadir := expandPath(datadir)
 
 	// Validate mnemonic
@@ -112,19 +127,24 @@ func Import(datadir string, mnemonic string) (*Wallet, error) {
 		return nil, fmt.Errorf("seed too short")
 	}
 
-	master, err := hdkeychain.NewMaster(seed, &chaincfg.MainNetParams)
+	params, ok := networkParams[network]
+	if !ok {
+		return nil, fmt.Errorf("unsupported network: %s", network)
+	}
+
+	master, err := hdkeychain.NewMaster(seed, params)
 	if err != nil {
 		return nil, err
 	}
 
-	scanSecret, spendSecret, err := bip352.DeriveKeysFromMaster(master, true)
+	scanSecret, spendSecret, err := bip352.DeriveKeysFromMaster(master, network == NetworkMainnet)
 	if err != nil {
 		return nil, fmt.Errorf("failed to derive keys: %w", err)
 	}
 
 	// Create wallet instance
 	w := &Wallet{
-		Network:     NetworkMainnet,
+		Network:     network,
 		Mnemonic:    mnemonic,
 		ScanSecret:  scanSecret[:],
 		SpendSecret: spendSecret[:],

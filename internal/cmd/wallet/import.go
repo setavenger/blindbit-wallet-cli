@@ -3,6 +3,7 @@ package wallet
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/setavenger/blindbit-wallet-cli/pkg/wallet"
@@ -16,6 +17,28 @@ var importCmd = &cobra.Command{
 	Short: "Import a wallet from a mnemonic",
 	Long:  `Import an existing wallet using its mnemonic (seed phrase). The mnemonic will be read securely from stdin. The wallet will be stored in the configured datadir.`,
 	RunE: func(cmd *cobra.Command, args []string) error {
+		datadir := viper.GetString("datadir")
+		walletPath := filepath.Join(datadir, "wallet.json")
+
+		// Check if wallet already exists
+		_, err := os.Stat(walletPath)
+		if err == nil {
+			fmt.Println("Warning: A wallet already exists at:", walletPath)
+			fmt.Println("Creating a new wallet will overwrite the existing one.")
+
+			// Ask for confirmation
+			fmt.Print("Do you want to continue? (y/N): ")
+			var response string
+			fmt.Scanln(&response)
+
+			if response != "y" && response != "Y" {
+				fmt.Println("Operation cancelled.")
+				return nil
+			}
+		} else if !os.IsNotExist(err) {
+			return fmt.Errorf("failed to check wallet file: %w", err)
+		}
+
 		fmt.Print("Enter your mnemonic (seed phrase): ")
 
 		// Read password securely
@@ -28,9 +51,12 @@ var importCmd = &cobra.Command{
 		mnemonic := strings.TrimSpace(string(bytePassword))
 		fmt.Println() // Add newline after password input
 
-		datadir := viper.GetString("datadir")
+		network := wallet.Network(viper.GetString("network"))
+		if cmd.Flags().Changed("network") {
+			network = wallet.Network(cmd.Flag("network").Value.String())
+		}
 
-		w, err := wallet.Import(datadir, mnemonic)
+		w, err := wallet.Import(datadir, mnemonic, network)
 		if err != nil {
 			return fmt.Errorf("failed to import wallet: %w", err)
 		}
@@ -42,4 +68,9 @@ var importCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+func init() {
+	// Add network flag
+	importCmd.Flags().String("network", "mainnet", "Network to use (mainnet, testnet, signet, regtest)")
 }

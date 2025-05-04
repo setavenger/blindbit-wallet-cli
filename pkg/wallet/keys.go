@@ -19,6 +19,7 @@ var (
 		NetworkMainnet: &chaincfg.MainNetParams,
 		NetworkTestnet: &chaincfg.TestNet3Params,
 		NetworkSignet:  &chaincfg.SigNetParams,
+		NetworkRegtest: &chaincfg.RegressionNetParams,
 	}
 )
 

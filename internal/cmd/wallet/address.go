@@ -22,6 +22,17 @@ Note: Label 0 is reserved for change addresses.`,
 			return fmt.Errorf("failed to load wallet: %w", err)
 		}
 
+		// Get network from flag if specified, otherwise use config file value
+		if cmd.Flags().Changed("network") {
+			w.Network = wallet.Network(cmd.Flag("network").Value.String())
+		} else {
+			// Use network from config file
+			configNetwork := viper.GetString("network")
+			if configNetwork != "" {
+				w.Network = wallet.Network(configNetwork)
+			}
+		}
+
 		// Get label number from flag
 		labelNum, _ := cmd.Flags().GetUint32("label")
 		showChange, _ := cmd.Flags().GetBool("change")
@@ -72,4 +83,6 @@ func init() {
 	// Add label flag (minimum value 1)
 	addressCmd.Flags().Uint32("label", 0, "Label number (M=1,2,3...) for the address")
 	addressCmd.Flags().Bool("change", false, "show change address, overrides label to 0 internally")
+	// Add network flag
+	addressCmd.Flags().String("network", "", "Network to use (mainnet, testnet, signet, regtest)")
 }

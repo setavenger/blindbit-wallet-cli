@@ -16,10 +16,14 @@ func NewSendCmd() *cobra.Command {
 	)
 
 	cmd := &cobra.Command{
-		Use:   "send [address] [amount]",
-		Short: "Send Bitcoin to an address",
-		Long: `Send Bitcoin to an address. The amount should be in satoshis.
-The command supports both regular Bitcoin addresses and silent payment addresses.`,
+		Use:   "send <address:amount>...",
+		Short: "Send Bitcoin to one or more addresses",
+		Long: `Send Bitcoin to one or more addresses. Each recipient should be specified in the format address:amount.
+The amount should be in satoshis. The command supports both regular Bitcoin addresses and silent payment addresses.
+
+Examples:
+  blindbit-wallet-cli wallet send bc1q...:1000000
+  blindbit-wallet-cli wallet send bc1q...:1000000 sp1q...:2000000 --fee-rate 5`,
 		Args: cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if feeRate < 0 {
@@ -31,6 +35,17 @@ The command supports both regular Bitcoin addresses and silent payment addresses
 			walletData, err := wallet.LoadData(datadir)
 			if err != nil {
 				return fmt.Errorf("failed to load wallet: %w", err)
+			}
+
+			// Get network from flag if specified, otherwise use config file value
+			if cmd.Flags().Changed("network") {
+				walletData.Wallet.Network = wallet.Network(cmd.Flag("network").Value.String())
+			} else {
+				// Use network from config file
+				configNetwork := viper.GetString("network")
+				if configNetwork != "" {
+					walletData.Wallet.Network = wallet.Network(configNetwork)
+				}
 			}
 
 			var recipients []wallet.Recipient
@@ -59,6 +74,7 @@ The command supports both regular Bitcoin addresses and silent payment addresses
 	}
 
 	cmd.Flags().Int32Var(&feeRate, "fee-rate", -1, "Fee rate in sat/vB")
+	cmd.Flags().String("network", "", "Network to use (mainnet, testnet, signet, regtest)")
 
 	return cmd
 }

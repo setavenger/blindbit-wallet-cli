@@ -43,7 +43,11 @@ var newCmd = &cobra.Command{
 		}
 
 		// Create new wallet
-		w, err := wallet.New(datadir, true)
+		network := wallet.Network(viper.GetString("network"))
+		if cmd.Flags().Changed("network") {
+			network = wallet.Network(cmd.Flag("network").Value.String())
+		}
+		w, err := wallet.New(datadir, network)
 		if err != nil {
 			return fmt.Errorf("failed to create wallet: %w", err)
 		}
@@ -57,4 +61,9 @@ var newCmd = &cobra.Command{
 
 		return nil
 	},
+}
+
+func init() {
+	// Add network flag
+	newCmd.Flags().String("network", "mainnet", "Network to use (mainnet, testnet, signet, regtest)")
 }

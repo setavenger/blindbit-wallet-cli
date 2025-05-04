@@ -30,6 +30,9 @@ var (
 # Data directory for wallet files
 datadir = "~/.blindbit-wallet"
 
+# Network configuration (mainnet, testnet, signet, regtest)
+network = "mainnet"
+
 # BlindBit Scan connection details
 scan_host = "localhost"
 scan_port = 8080
