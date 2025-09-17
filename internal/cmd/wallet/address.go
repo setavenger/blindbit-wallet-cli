@@ -55,11 +55,13 @@ Note: Label 0 is reserved for change addresses.`,
 			}
 			address = label.Address
 		} else {
+			pubKeyScan := w.PubKeyScan()
+			pubKeySpend := w.PubKeySpend()
 
 			// Create base address (no label)
 			address, err = bip352.CreateAddress(
-				w.PubKeyScan(),
-				w.PubKeySpend(),
+				&pubKeyScan,
+				&pubKeySpend,
 				w.Network == "mainnet",
 				0, // version 0
 			)
@@ -71,8 +73,12 @@ Note: Label 0 is reserved for change addresses.`,
 
 		fmt.Println("Silent Payment Address:")
 		fmt.Println(address)
-		if labelNum > 0 {
-			fmt.Printf("Label: M=%d\n", labelNum)
+		if labelNum > 0 || showChange {
+			if labelNum == 0 {
+				fmt.Printf("Label: M=%d (CHANGE)\n", labelNum)
+			} else {
+				fmt.Printf("Label: M=%d\n", labelNum)
+			}
 		}
 
 		return nil

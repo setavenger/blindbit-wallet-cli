@@ -22,6 +22,7 @@ func NewCommand() *cobra.Command {
 	WalletCmd.AddCommand(utxosCmd)
 	WalletCmd.AddCommand(addressCmd)
 	WalletCmd.AddCommand(NewSendCmd())
+	WalletCmd.AddCommand(NewScanCmd())
 
 	return WalletCmd
 }

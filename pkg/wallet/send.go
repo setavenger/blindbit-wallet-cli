@@ -28,10 +28,8 @@ func SendToRecipients(
 	error,
 ) {
 	// Convert recipients to coin selector format
-	var selectorRecipients []Recipient
-	for _, r := range recipients {
-		selectorRecipients = append(selectorRecipients, r)
-	}
+	var selectorRecipients = make([]Recipient, len(recipients))
+	copy(selectorRecipients, recipients)
 
 	// Convert UTXOs to coin selector format
 	var utxos scanwallet.UtxoCollection
@@ -105,8 +103,11 @@ func (w Wallet) SendToRecipients(
 	var vins = make([]*bip352.Vin, len(selectedUTXOs))
 	for i, utxo := range selectedUTXOs {
 		vin := ConvertOwnedUTXOIntoVin(utxo)
-		fullVinSecretKey := bip352.AddPrivateKeys(*vin.SecretKey, [32]byte(w.SpendSecret))
-		vin.SecretKey = &fullVinSecretKey
+		err := bip352.AddPrivateKeys(vin.SecretKey, (*[32]byte)(w.SpendSecret))
+		if err != nil {
+			return nil, err
+		}
+		// vin.SecretKey = &fullVinSecretKey
 		vins[i] = &vin
 	}
 

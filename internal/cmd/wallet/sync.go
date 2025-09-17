@@ -77,11 +77,10 @@ var syncCmd = &cobra.Command{
 			}
 
 			// Compare derived public key with UTXO's public key (X-only comparison)
-			derivedPubKeyBytes := derivedPubKey.SerializeCompressed()
-			if !bytes.Equal(derivedPubKeyBytes[1:], u.PubKey[:]) {
+			if !bytes.Equal(derivedPubKey[1:], u.PubKey[:]) {
 				fmt.Printf("Warning: Skipping UTXO %s (vout %d) - public key mismatch\n",
 					hex.EncodeToString(u.Txid[:]), u.Vout)
-				fmt.Printf("Derived pubkey: %x\n", derivedPubKeyBytes[1:])
+				fmt.Printf("Derived pubkey: %x\n", derivedPubKey[1:])
 				fmt.Printf("UTXO pubkey: %x\n", u.PubKey[:])
 				continue
 			}

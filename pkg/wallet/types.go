@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/chaincfg"
 	scanwallet "github.com/setavenger/blindbit-scan/pkg/wallet"
 	"github.com/setavenger/go-bip352"
 )
@@ -19,6 +20,16 @@ const (
 	NetworkTestnet Network = "testnet"
 	NetworkSignet  Network = "signet"
 	NetworkRegtest Network = "regtest"
+)
+
+var (
+	// Network parameters for different networks
+	networkParams = map[Network]*chaincfg.Params{
+		NetworkMainnet: &chaincfg.MainNetParams,
+		NetworkTestnet: &chaincfg.TestNet3Params,
+		NetworkSignet:  &chaincfg.SigNetParams,
+		NetworkRegtest: &chaincfg.RegressionNetParams,
+	}
 )
 
 // UTXOState represents the state of a UTXO

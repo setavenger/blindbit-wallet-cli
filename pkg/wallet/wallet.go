@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/btcsuite/btcd/btcutil/hdkeychain"
+	"github.com/setavenger/blindbit-lib/utils"
 	"github.com/setavenger/go-bip352"
 	"github.com/tyler-smith/go-bip39"
 )
@@ -224,18 +225,20 @@ func GenerateLabel(
 ) (
 	l bip352.Label, err error,
 ) {
-	l, err = bip352.CreateLabel([32]byte(w.ScanSecret), m)
+	l, err = bip352.CreateLabel((*[32]byte)(w.ScanSecret), m)
 	if err != nil {
 		return
 	}
+	pubKeyScan := w.PubKeyScan()
+	pubKeySpend := w.PubKeySpend()
 
-	BmKey, err := bip352.AddPublicKeys(w.PubKeySpend(), l.PubKey)
+	BmKey, err := bip352.AddPublicKeys(&pubKeySpend, &l.PubKey)
 	if err != nil {
 		return
 	}
 	address, err := bip352.CreateAddress(
-		w.PubKeyScan(),
-		BmKey,
+		&pubKeyScan,
+		&BmKey,
 		w.Network == "mainnet",
 		0,
 	)
@@ -262,4 +265,22 @@ func LoadData(datadir string) (*WalletData, error) {
 	}
 
 	return &walletData, nil
+}
+
+// DerivePublicKey derives a public key from the spend secret and tweak
+func DerivePublicKey(spendSecret []byte, tweak [32]byte) ([33]byte, error) {
+	// Convert spend secret to fixed-size array
+	var spendSecretArr [32]byte
+	copy(spendSecretArr[:], spendSecret)
+
+	// Add the private keys (spend secret and tweak)
+	err := bip352.AddPrivateKeys(&spendSecretArr, &tweak)
+	if err != nil {
+		return [33]byte{}, err
+	}
+
+	utils.ConvertToFixedLength32(spendSecretArr[:])
+	mergedPubKey := bip352.PubKeyFromSecKey(&spendSecretArr)
+
+	return *mergedPubKey, nil
 }
