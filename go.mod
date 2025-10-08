@@ -10,7 +10,7 @@ require (
 	github.com/btcsuite/btcd/chaincfg/chainhash v1.1.0
 	github.com/setavenger/blindbit-lib v0.0.2-0.20250903210357-3159ad9b285f
 	github.com/setavenger/blindbit-scan v0.1.2-0.20250808123901-ddda87f37adf
-	github.com/setavenger/go-bip352 v0.1.8-0.20250807131225-a74b7fe83681
+	github.com/setavenger/go-bip352 v0.1.9-0.20250919170152-7683068d2f35
 	github.com/spf13/cobra v1.10.1
 	github.com/spf13/viper v1.19.0
 	github.com/stretchr/testify v1.10.0
@@ -22,7 +22,7 @@ require (
 // todo: remove when back online
 replace (
 	github.com/setavenger/blindbit-lib => ../blindbit-lib/
-	github.com/setavenger/blindbit-scan => ../blindbit-scan/
+	// github.com/setavenger/blindbit-scan => ../blindbit-scan/
 	github.com/setavenger/go-bip352 => ../go-bip352/
 )
 

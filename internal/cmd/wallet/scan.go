@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 
+	"github.com/setavenger/blindbit-lib/logging"
 	"github.com/setavenger/blindbit-lib/networking/v2connect"
-	"github.com/setavenger/blindbit-lib/scanning"
+	"github.com/setavenger/blindbit-lib/scanning/scannerv2"
 	"github.com/setavenger/blindbit-wallet-cli/pkg/wallet"
+	"github.com/setavenger/go-bip352"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -27,23 +29,61 @@ func NewScanCmd() *cobra.Command {
 				return fmt.Errorf("failed to create v2 client: %w", err)
 			}
 
-			scanner := scanning.NewScannerV2(
+			changeLabel, err := bip352.CreateLabel((*[32]byte)(walletData.Wallet.ScanSecret), 0)
+			if err != nil {
+				return err
+			}
+
+			// var scanSec [32]byte
+			// copy(scanSec[:], walletData.Wallet.ScanSecret)
+			// changeLabel, err := bip352.CreateLabel(&scanSec, 0)
+			// if err != nil {
+			// 	return err
+			// }
+
+			scanner := scannerv2.NewScannerV2(
 				v2client,
 				[32]byte(walletData.Wallet.ScanSecret),
 				walletData.Wallet.PubKeySpend(),
-				nil,
+				[]*bip352.Label{&changeLabel},
 			)
 
-			newUtxosChan := scanner.NewUtxosChan()
+			// incompChan := scanner.NewIncompleteUTXOsChan()
+			// go func() {
+			// 	for utxo := range incompChan {
+			// 		if len(utxo) > 0 {
+			// 			logging.L.Info().Hex("txid", utxo[0].Txid[:]).Msg("incomplete UTXO")
+			// 		}
+			// 	}
+			// 	// fmt.Println("newUtxosChan passed range", newUtxosChan)
+			// }()
+
+			newUtxosChan := scanner.NewOwnedUTXOsChan()
 			go func() {
 				for utxo := range newUtxosChan {
-					if len(utxo) > 0 {
-						fmt.Printf("New UTXO: %+v\n", utxo[0])
-					}
+					logging.L.Info().
+						Hex("txid", utxo.Txid[:]).
+						Any("utxo", utxo).
+						Msg("new UTXO")
 				}
+				// fmt.Println("newUtxosChan passed range", newUtxosChan)
 			}()
 
-			err = scanner.ScanParallel(context.TODO(), 883000, 893000)
+			ctx, cancel := context.WithCancel(cmd.Context())
+			defer cancel()
+			// err = scanner.ScanParallelShortOutputs(context.TODO(), 892200, 892250)
+
+			// go func() {
+			// 	<-time.After(2 * time.Second)
+			// 	err = scanner.Stop()
+			// 	// cancel()
+			// 	if err != nil {
+			// 		panic(err)
+			// 	}
+			// }()
+
+			// err = scanner.Watch(ctx)
+			err = scanner.Scan(ctx, 892229, 892340)
 			if err != nil {
 				return fmt.Errorf("failed to scan: %w", err)
 			}
